@@ -1,0 +1,28 @@
+const express = require('express');
+const path = require('path');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const { Pool } = require('pg');
+const app = express();
+const PORT = Number(process.env.PORT) || 8080;
+const JWT_SECRET = process.env.JWT_SECRET || 'change-this-in-production';
+const ADMIN_USER = process.env.ADMIN_USER || 'admin';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'change-me-now';
+const hasDb = Boolean(process.env.DATABASE_URL);
+const pool = hasDb ? new Pool({connectionString:process.env.DATABASE_URL,ssl:{rejectUnauthorized:false},max:5}) : null;
+app.use(express.json({limit:'1mb'}));
+app.use(express.static(__dirname));
+function normalizePhone(value){return String(value??'').replace(/[٠-٩]/g,d=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[۰-۹]/g,d=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/\D/g,'');}
+async function initDb(){if(!hasDb){console.warn('DATABASE_URL is missing.');return;}await pool.query(`CREATE TABLE IF NOT EXISTS requests(id BIGSERIAL PRIMARY KEY,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),name TEXT NOT NULL,phone TEXT NOT NULL,service TEXT NOT NULL,details TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','confirmed','cancelled')),total_price NUMERIC(12,2) NOT NULL DEFAULT 0,paid NUMERIC(12,2) NOT NULL DEFAULT 0);`);await pool.query(`CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY,value TEXT NOT NULL);`);}
+function auth(req,res,next){const h=req.headers.authorization||'',token=h.startsWith('Bearer ')?h.slice(7):'';try{req.admin=jwt.verify(token,JWT_SECRET);next();}catch{res.status(401).json({error:'غير مصرح'});}}
+app.get('/api/health',async(_req,res)=>{if(!pool)return res.status(503).json({ok:false,database:false});try{await pool.query('SELECT 1');res.json({ok:true,database:true});}catch{res.status(503).json({ok:false,database:false});}});
+app.post('/api/auth/login',async(req,res)=>{const {username,password}=req.body||{};if(username!==ADMIN_USER||typeof password!=='string'||password!==ADMIN_PASSWORD)return res.status(401).json({error:'اسم المستخدم أو كلمة المرور غير صحيحة'});res.json({token:jwt.sign({sub:username,role:'admin'},JWT_SECRET,{expiresIn:'8h'})});});
+app.get('/api/requests',auth,async(_req,res)=>{try{const {rows}=await pool.query(`SELECT id,created_at AS "createdAt",name,phone,service,details,status,total_price AS "totalPrice",paid FROM requests ORDER BY created_at DESC`);res.json(rows.map(x=>({...x,totalPrice:Number(x.totalPrice||0),paid:Number(x.paid||0),date:new Date(x.createdAt).toLocaleString('ar-EG')})));}catch(e){console.error(e);res.status(500).json({error:'تعذر تحميل الحجوزات'});}});
+app.post('/api/requests',async(req,res)=>{const {name,phone,service,details}=req.body||{},cleanPhone=normalizePhone(phone);if(!String(name||'').trim()||!String(service||'').trim()||!String(details||'').trim()||cleanPhone.length<7||cleanPhone.length>15)return res.status(400).json({error:'كل البيانات مطلوبة ورقم الهاتف يجب أن يكون من 7 إلى 15 رقمًا'});try{const {rows}=await pool.query(`INSERT INTO requests(name,phone,service,details) VALUES($1,$2,$3,$4) RETURNING id,created_at AS "createdAt",name,phone,service,details,status,total_price AS "totalPrice",paid`,[String(name).trim(),cleanPhone,String(service).trim(),String(details).trim()]);res.status(201).json(rows[0]);}catch(e){console.error(e);res.status(500).json({error:'تعذر حفظ الحجز'});}});
+app.put('/api/requests/:id',auth,async(req,res)=>{const b=req.body||{},phone=normalizePhone(b.phone);if(phone.length<7||phone.length>15)return res.status(400).json({error:'رقم الهاتف يجب أن يكون من 7 إلى 15 رقمًا'});try{const {rows}=await pool.query(`UPDATE requests SET name=$1,phone=$2,service=$3,details=$4,status=$5,total_price=$6,paid=$7 WHERE id=$8 RETURNING id,created_at AS "createdAt",name,phone,service,details,status,total_price AS "totalPrice",paid`,[String(b.name||'').trim(),phone,String(b.service||'').trim(),String(b.details||'').trim(),b.status,Math.max(0,Number(b.totalPrice)||0),Math.max(0,Number(b.paid)||0),req.params.id]);if(!rows[0])return res.status(404).json({error:'الحجز غير موجود'});res.json(rows[0]);}catch(e){console.error(e);res.status(500).json({error:'تعذر حفظ التعديلات'});}});
+app.delete('/api/requests/:id',auth,async(req,res)=>{try{const r=await pool.query('DELETE FROM requests WHERE id=$1',[req.params.id]);if(!r.rowCount)return res.status(404).json({error:'الحجز غير موجود'});res.status(204).end();}catch(e){res.status(500).json({error:'تعذر حذف الحجز'});}});
+app.delete('/api/requests',auth,async(_req,res)=>{try{await pool.query('DELETE FROM requests');res.status(204).end();}catch(e){res.status(500).json({error:'تعذر مسح الحجوزات'});}});
+app.get('/api/settings/availability',auth,async(_req,res)=>{try{const {rows}=await pool.query('SELECT value FROM settings WHERE key=$1',['availability']);res.json({value:rows[0]?.value||''});}catch(e){res.status(500).json({error:'تعذر تحميل المواعيد'});}});
+app.put('/api/settings/availability',auth,async(req,res)=>{try{const value=String(req.body?.value||'').trim();await pool.query(`INSERT INTO settings(key,value) VALUES('availability',$1) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value`,[value]);res.json({value});}catch(e){res.status(500).json({error:'تعذر حفظ المواعيد'});}});
+app.get('/admin-panel.html',(_req,res)=>res.sendFile(path.join(__dirname,'admin-panel.html')));
+initDb().then(()=>app.listen(PORT,'0.0.0.0',()=>console.log(`Sergany backend running on ${PORT}`))).catch(e=>{console.error('Database initialization failed:',e);app.listen(PORT,'0.0.0.0',()=>console.log(`Sergany backend running on ${PORT} (database unavailable)`));});
