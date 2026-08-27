@@ -5,24 +5,9 @@
  const safe=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
  const api=async(path,opt={})=>{const r=await fetch(path,{...opt,headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`}});if(r.status===401){sessionStorage.removeItem('adminToken');location.href='admin.html';return;}if(!r.ok){const d=await r.json().catch(()=>({}));throw Error(d.error||'خطأ');}return r.status===204?null:r.json()};
  const dateOf=x=>new Date(x.createdAt||x.id), same=(a,b)=>a&&b&&a.toDateString()===b.toDateString(); const statusLabel=s=>({confirmed:'مؤكد',pending:'قيد الانتظار',cancelled:'ملغي'}[s]||'قيد الانتظار'); const payment=x=>x.totalPrice>0&&x.paid>=x.totalPrice?'paid':x.paid>0?'partial':'unpaid'; const payLabel=s=>({paid:'مدفوع بالكامل',partial:'مدفوع جزئيًا',unpaid:'غير مدفوع'}[s]);
- let list=[];
- async function load(){list=await api('/api/requests');render();loadAvailability();}
- function fillClients(){
-   const select=document.getElementById('availabilityClient');
-   if(!select)return;
-   const current=select.value;
-   const unique=new Map();
-   list.forEach(x=>{
-     const phone=String(x.phone||'').replace(/\D/g,'');
-     const key=phone||String(x.id);
-     if(!unique.has(key))unique.set(key,x);
-   });
-   const clients=[...unique.values()];
-   select.innerHTML='<option value="">اختر عميلًا</option>'+clients.map(x=>`<option value="${safe(x.id)}">${safe(x.name)} — ${safe(x.phone)}</option>`).join('');
-   if(clients.some(x=>String(x.id)===current))select.value=current;
- }
+ let list=[]; window.apiAvailabilityEnabled=true;
+ async function load(){list=await api('/api/requests');render();loadAvailability();fillAvailabilityClients();}
  function render(){
-   fillClients();
    const now=new Date(), y=new Date(now); y.setDate(now.getDate()-1), month=new Date(now.getFullYear(),now.getMonth(),1);
    document.getElementById('count').textContent=list.length; document.getElementById('todayCount').textContent=list.filter(x=>same(dateOf(x),now)).length; document.getElementById('yesterdayCount').textContent=list.filter(x=>same(dateOf(x),y)).length; document.getElementById('monthCount').textContent=list.filter(x=>dateOf(x)>=month&&dateOf(x)<=now).length;
    document.getElementById('totalRevenue').textContent=money(list.reduce((a,x)=>a+Number(x.totalPrice||0),0)); document.getElementById('totalPaid').textContent=money(list.reduce((a,x)=>a+Number(x.paid||0),0)); document.getElementById('totalRemaining').textContent=money(list.reduce((a,x)=>a+Math.max(0,Number(x.totalPrice||0)-Number(x.paid||0)),0));
@@ -31,10 +16,32 @@
    box.innerHTML=filtered.length?filtered.map(x=>{const ps=payment(x);return `<article class="request booking-request" data-id="${x.id}"><div class="request-title"><div><b>${safe(x.name)}</b><span>${safe(x.date||'')}</span></div><div class="status-group"><em class="booking-status ${safe(x.status)}">${statusLabel(x.status)}</em><em class="payment-status ${ps}">${payLabel(ps)}</em></div></div><div class="booking-details"><div><small>📱 الموبايل</small><strong>${safe(x.phone)}</strong></div><div><small>🧾 الخدمة</small><strong>${safe(x.service)}</strong></div><div><small>📅 تاريخ الطلب</small><strong>${dateOf(x).toLocaleDateString('ar-EG')}</strong></div><div class="full"><small>📝 تفاصيل الحجز</small><strong>${safe(x.details)}</strong></div></div><div class="edit-box"><label>اسم العميل<input class="edit-name" value="${safe(x.name)}"></label><label>الموبايل<input class="edit-phone" value="${safe(x.phone)}"></label><label>الخدمة<input class="edit-service" value="${safe(x.service)}"></label><label class="full-label">التفاصيل<textarea class="edit-details" rows="3">${safe(x.details)}</textarea></label></div><div class="payment-box"><label>السعر الكلي<input class="total-price" type="number" min="0" value="${Number(x.totalPrice||0)}"></label><label>المدفوع<input class="paid-price" type="number" min="0" value="${Number(x.paid||0)}"></label><label>حالة الحجز<select class="booking-status-select"><option value="pending" ${x.status==='pending'?'selected':''}>قيد الانتظار</option><option value="confirmed" ${x.status==='confirmed'?'selected':''}>مؤكد</option><option value="cancelled" ${x.status==='cancelled'?'selected':''}>ملغي</option></select></label><div class="remaining"><span>المتبقي</span><b class="remaining-value">${money(Math.max(0,Number(x.totalPrice||0)-Number(x.paid||0)))}</b></div></div><div class="request-actions"><button class="save-request" type="button">حفظ كل التعديلات</button><a class="wa-direct" href="https://wa.me/${String(x.phone).replace(/\D/g,'')}" target="_blank" rel="noopener">واتساب مباشر ↗</a><button class="delete-request" type="button">حذف الحجز</button></div></article>`}).join(''):'<div class="empty">لا توجد حجوزات مطابقة للبحث أو الفلترة.</div>';
    box.querySelectorAll('.booking-request').forEach(card=>{const id=card.dataset.id,x=list.find(r=>String(r.id)===String(id));const total=card.querySelector('.total-price'),paid=card.querySelector('.paid-price'),rem=card.querySelector('.remaining-value');const update=()=>rem.textContent=money(Math.max(0,Number(total.value||0)-Number(paid.value||0)));total.oninput=update;paid.oninput=update;card.querySelector('.save-request').onclick=async()=>{await api('/api/requests/'+id,{method:'PUT',body:JSON.stringify({name:card.querySelector('.edit-name').value,phone:card.querySelector('.edit-phone').value,service:card.querySelector('.edit-service').value,details:card.querySelector('.edit-details').value,totalPrice:total.value,paid:paid.value,status:card.querySelector('.booking-status-select').value})});await load();};card.querySelector('.delete-request').onclick=async()=>{if(confirm('حذف هذا الحجز؟')){await api('/api/requests/'+id,{method:'DELETE'});await load();}}});
  }
+ function fillAvailabilityClients(){
+   const select=document.getElementById('availabilityClient'); if(!select)return;
+   const current=select.value;
+   const seen=new Set();
+   const clients=list.filter(x=>x&&x.name&&x.phone).filter(x=>{
+     const key=String(x.phone).replace(/\D/g,'')||String(x.name).trim().toLowerCase();
+     if(seen.has(key))return false; seen.add(key); return true;
+   });
+   select.innerHTML='<option value="">اختر عميلًا</option>'+clients.map(x=>`<option value="${safe(x.id)}">${safe(x.name)} — ${safe(x.phone)}</option>`).join('');
+   if(clients.some(x=>String(x.id)===current))select.value=current;
+ }
  async function loadAvailability(){const x=await api('/api/settings/availability');const s=document.getElementById('availableSlots');if(s)s.value=x.value||'';}
  document.getElementById('clearRequests')?.addEventListener('click',async()=>{if(confirm('مسح كل الحجوزات؟')){await api('/api/requests',{method:'DELETE'});await load();}});
  document.getElementById('saveAvailability')?.addEventListener('click',async()=>{const value=document.getElementById('availableSlots').value.trim();await api('/api/settings/availability',{method:'PUT',body:JSON.stringify({value})});document.getElementById('availabilityHint').textContent='تم حفظ المواعيد على السيرفر.';setTimeout(()=>document.getElementById('availabilityHint').textContent='',2500)});
  ['adminSearch','statusFilter','dateFilter'].forEach(id=>document.getElementById(id)?.addEventListener(id==='adminSearch'?'input':'change',render));
+ document.getElementById('sendAvailability')?.addEventListener('click',()=>{
+   const client=document.getElementById('availabilityClient'), slots=document.getElementById('availableSlots'), hint=document.getElementById('availabilityHint');
+   const x=list.find(r=>String(r.id)===String(client?.value)); const raw=(slots?.value||'').trim();
+   if(!x){if(hint)hint.textContent='اختر العميل أولًا.';return;}
+   if(!raw){if(hint)hint.textContent='اكتب المواعيد المتاحة أولًا.';return;}
+   const phone=String(x.phone||'').replace(/\D/g,'');
+   if(!phone){if(hint)hint.textContent='رقم هاتف العميل غير صالح.';return;}
+   const text=`مرحبًا ${x.name} 👋\n\nالمواعيد المتاحة لحجزك في مكتب Sergany:\n\n${raw}\n\nاختر الموعد المناسب لك وأرسل لي تأكيدك. شكرًا لك.`;
+   window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`,'_blank','noopener');
+   if(hint)hint.textContent='تم تجهيز رسالة واتساب بالمواعيد المتاحة.';
+ });
  window.adminLogout=()=>{sessionStorage.removeItem('adminToken');location.href='admin.html'};
  await load();
 })().catch(e=>alert(e.message));
