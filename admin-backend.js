@@ -7,7 +7,22 @@
  const dateOf=x=>new Date(x.createdAt||x.id), same=(a,b)=>a&&b&&a.toDateString()===b.toDateString(); const statusLabel=s=>({confirmed:'مؤكد',pending:'قيد الانتظار',cancelled:'ملغي'}[s]||'قيد الانتظار'); const payment=x=>x.totalPrice>0&&x.paid>=x.totalPrice?'paid':x.paid>0?'partial':'unpaid'; const payLabel=s=>({paid:'مدفوع بالكامل',partial:'مدفوع جزئيًا',unpaid:'غير مدفوع'}[s]);
  let list=[];
  async function load(){list=await api('/api/requests');render();loadAvailability();}
+ function fillClients(){
+   const select=document.getElementById('availabilityClient');
+   if(!select)return;
+   const current=select.value;
+   const unique=new Map();
+   list.forEach(x=>{
+     const phone=String(x.phone||'').replace(/\D/g,'');
+     const key=phone||String(x.id);
+     if(!unique.has(key))unique.set(key,x);
+   });
+   const clients=[...unique.values()];
+   select.innerHTML='<option value="">اختر عميلًا</option>'+clients.map(x=>`<option value="${safe(x.id)}">${safe(x.name)} — ${safe(x.phone)}</option>`).join('');
+   if(clients.some(x=>String(x.id)===current))select.value=current;
+ }
  function render(){
+   fillClients();
    const now=new Date(), y=new Date(now); y.setDate(now.getDate()-1), month=new Date(now.getFullYear(),now.getMonth(),1);
    document.getElementById('count').textContent=list.length; document.getElementById('todayCount').textContent=list.filter(x=>same(dateOf(x),now)).length; document.getElementById('yesterdayCount').textContent=list.filter(x=>same(dateOf(x),y)).length; document.getElementById('monthCount').textContent=list.filter(x=>dateOf(x)>=month&&dateOf(x)<=now).length;
    document.getElementById('totalRevenue').textContent=money(list.reduce((a,x)=>a+Number(x.totalPrice||0),0)); document.getElementById('totalPaid').textContent=money(list.reduce((a,x)=>a+Number(x.paid||0),0)); document.getElementById('totalRemaining').textContent=money(list.reduce((a,x)=>a+Math.max(0,Number(x.totalPrice||0)-Number(x.paid||0)),0));
