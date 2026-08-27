@@ -61,7 +61,9 @@ app.get('/api/requests', auth, async (_req,res)=>{
 app.post('/api/requests', async (req,res)=>{
   const {name,phone,service,details}=req.body||{};
   if(!name||!phone||!service||!details) return res.status(400).json({error:'كل البيانات مطلوبة'});
-  const {rows}=await pool.query(`INSERT INTO requests(name,phone,service,details) VALUES($1,$2,$3,$4) RETURNING id,created_at AS "createdAt",name,phone,service,details,status,total_price AS "totalPrice",paid`,[name.trim(),phone.trim(),service.trim(),details.trim()]);
+  const cleanPhone=String(phone).replace(/[٠-٩]/g,d=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[^0-9]/g,'');
+  if(!/^\d{7,15}$/.test(cleanPhone)) return res.status(400).json({error:'رقم الموبايل يجب أن يحتوي على أرقام فقط، من 7 إلى 15 رقمًا'});
+  const {rows}=await pool.query(`INSERT INTO requests(name,phone,service,details) VALUES($1,$2,$3,$4) RETURNING id,created_at AS "createdAt",name,phone,service,details,status,total_price AS "totalPrice",paid`,[name.trim(),cleanPhone,service.trim(),details.trim()]);
   res.status(201).json(rows[0]);
 });
 

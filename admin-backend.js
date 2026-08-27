@@ -8,6 +8,7 @@
   const money=v=>Number(v||0).toLocaleString('ar-EG',{maximumFractionDigits:2});
   const safe=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
   const normalize=v=>String(v??'').toLocaleLowerCase('ar-EG').replace(/[٠-٩]/g,d=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[۰-۹]/g,d=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/[\s\-()]/g,'');
+  const waPhone=v=>{let s=String(v??'').replace(/[٠-٩]/g,d=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[۰-۹]/g,d=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).trim();s=s.replace(/[^0-9+]/g,'');if(s.startsWith('+'))s=s.slice(1);else if(s.startsWith('00'))s=s.slice(2);else if(s.startsWith('0')&&s.length>=10&&s.length<=11)s='20'+s.slice(1);return s;}
   const api=async(path,opt={})=>{
     const r=await fetch(path,{...opt,headers:{'Content-Type':'application/json',...(opt.headers||{}),Authorization:`Bearer ${token}`}});
     if(r.status===401){sessionStorage.removeItem('adminToken');location.href='admin.html';return null;}
@@ -82,7 +83,7 @@
         <div class="booking-details"><div><small>📱 الموبايل</small><strong>${safe(x.phone)}</strong></div><div><small>🧾 الخدمة</small><strong>${safe(x.service)}</strong></div><div><small>📅 تاريخ الطلب</small><strong>${dateOf(x).toLocaleDateString('ar-EG')}</strong></div><div class="full"><small>📝 تفاصيل الحجز</small><strong>${safe(x.details)}</strong></div></div>
         <div class="edit-box"><label>اسم العميل<input class="edit-name" value="${safe(x.name)}"></label><label>الموبايل<input class="edit-phone" value="${safe(x.phone)}"></label><label>الخدمة<input class="edit-service" value="${safe(x.service)}"></label><label class="full-label">التفاصيل<textarea class="edit-details" rows="3">${safe(x.details)}</textarea></label></div>
         <div class="payment-box"><label>السعر الكلي<input class="total-price" type="number" min="0" value="${Number(x.totalPrice||0)}"></label><label>المدفوع<input class="paid-price" type="number" min="0" value="${Number(x.paid||0)}"></label><label>حالة الحجز<select class="booking-status-select"><option value="pending" ${x.status==='pending'?'selected':''}>قيد الانتظار</option><option value="confirmed" ${x.status==='confirmed'?'selected':''}>مؤكد</option><option value="cancelled" ${x.status==='cancelled'?'selected':''}>ملغي</option></select></label><div class="remaining"><span>المتبقي</span><b class="remaining-value">${money(Math.max(0,Number(x.totalPrice||0)-Number(x.paid||0)))}</b></div></div>
-        <div class="request-actions"><button class="save-request" type="button">حفظ كل التعديلات</button><a class="wa-direct" href="https://wa.me/${String(x.phone||'').replace(/\D/g,'')}" target="_blank" rel="noopener">واتساب مباشر ↗</a><button class="delete-request" type="button">حذف الحجز</button></div>
+        <div class="request-actions"><button class="save-request" type="button">حفظ كل التعديلات</button><a class="wa-direct" href="https://wa.me/${waPhone(x.phone)}" target="_blank" rel="noopener">واتساب مباشر ↗</a><button class="delete-request" type="button">حذف الحجز</button></div>
       </article>`;
     }).join(''):'<div class="empty">لا توجد حجوزات مطابقة للبحث أو الفلترة.</div>';
 
@@ -140,7 +141,7 @@
     const x=list.find(r=>String(r.id)===clientId);
     if(!x){if(hint)hint.textContent='اختر العميل أولًا.';return;}
     if(!raw){if(hint)hint.textContent='اكتب المواعيد المتاحة أولًا.';return;}
-    const phone=String(x.phone||'').replace(/\D/g,'');
+    const phone=waPhone(x.phone);
     if(!phone){if(hint)hint.textContent='رقم هاتف العميل غير صالح.';return;}
     const text=`مرحبًا ${x.name} 👋\n\nالمواعيد المتاحة لحجزك في مكتب Sergany:\n\n${raw}\n\nاختر الموعد المناسب لك وأرسل لي تأكيدك. شكرًا لك.`;
     const url=`https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
