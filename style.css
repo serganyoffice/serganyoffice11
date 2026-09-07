@@ -21,6 +21,11 @@ a{text-decoration:none;color:inherit}button,input,select,textarea{font:inherit}i
 .brand b{display:block;font-size:14px;letter-spacing:4px;line-height:1}.brand small{display:block;margin-top:5px;color:#7f8d99;font-size:7px;letter-spacing:1.8px;line-height:1}
 .nav nav{display:flex;align-items:center;gap:30px;font-size:12px;color:#d4d9de}.nav nav a{position:relative;transition:.3s}.nav nav a:not(.nav-cta):after{content:"";position:absolute;right:0;bottom:-9px;width:0;height:1px;background:var(--gold2);transition:.3s}.nav nav a:hover,.nav nav a.active{color:var(--gold3)}.nav nav a:hover:after,.nav nav a.active:after{width:100%}
 .nav-cta{padding:10px 19px;border:1px solid var(--line-gold);border-radius:999px!important;background:linear-gradient(135deg,rgba(201,155,75,.12),rgba(255,255,255,.02));color:var(--gold3)!important;box-shadow:inset 0 0 18px rgba(201,155,75,.04)}.nav-cta:hover{transform:translateY(-2px);background:rgba(201,155,75,.15)}
+
+.menu {
+  display: none !important;
+}
+
 @media (max-width: 768px) {
   .menu {
     display: flex !important;
@@ -48,7 +53,6 @@ a{text-decoration:none;color:inherit}button,input,select,textarea{font:inherit}i
     transition: all 0.3s ease;
   }
 }
-
 /* COMMON */
 .hero,.section,.booking,.inner-hero,.statement,.final-cta{position:relative}.section{padding:125px 7%}.kicker,.eyebrow{font-size:10px;letter-spacing:2.8px;color:var(--gold2);font-weight:800;text-transform:uppercase}.eyebrow i{display:inline-block;width:34px;height:1px;background:var(--gold);vertical-align:middle;margin-left:11px;box-shadow:0 0 10px rgba(201,155,75,.5)}
 .section-head{margin-bottom:60px}.section-head h2,.statement h2,.final-cta h2{font-size:clamp(38px,4.4vw,64px);line-height:1.18;margin:16px 0 0;font-weight:900;letter-spacing:-2.4px}.section-head.split{display:flex;justify-content:space-between;align-items:end;gap:30px}.section-head p{color:var(--muted);max-width:580px}.outline{border:1px solid var(--line-gold);padding:11px 18px;color:var(--gold3);font-size:11px;border-radius:4px;transition:.3s}.outline:hover{background:rgba(201,155,75,.08);transform:translateY(-2px)}
