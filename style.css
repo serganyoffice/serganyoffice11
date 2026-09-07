@@ -516,3 +516,42 @@ button,.btn,.nav a{touch-action:manipulation;}
   }
 }
 
+/* ===== Fix: Put About Image Properly Inside Its Frame ===== */
+.about-image{
+  position:relative;
+  padding:18px;
+  box-sizing:border-box;
+}
+
+.about-image:before{
+  content:"";
+  position:absolute;
+  inset:0;
+  border:1px solid rgba(201,155,75,.35);
+  z-index:0;
+  pointer-events:none;
+}
+
+.about-image img{
+  position:relative;
+  z-index:1;
+  width:100%;
+  aspect-ratio:4/5;
+  object-fit:cover;
+  max-height:620px;
+  border-radius:3px;
+}
+
+@media(max-width:600px){
+  .about-image{
+    padding:12px;
+  }
+
+  .about-image:before{
+    inset:0;
+  }
+
+  .about-image img{
+    width:100%;
+  }
+}
