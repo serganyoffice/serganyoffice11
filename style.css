@@ -515,3 +515,19 @@ button,.btn,.nav a{touch-action:manipulation;}
     right: auto !important;
   }
 }
+
+
+
+.hero, .hero-content, .hero-title, h1, h2 {
+  position: relative !important;
+  right: auto !important;
+  left: auto !important;
+  max-width: 100% !important;
+  word-wrap: break-word !important;
+  white-space: normal !important;
+}
+
+html, body {
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+}
