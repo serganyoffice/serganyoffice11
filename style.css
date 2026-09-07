@@ -516,11 +516,11 @@ button,.btn,.nav a{touch-action:manipulation;}
   }
 }
 
-/* ===== Fix: Put About Image Properly Inside Its Frame ===== */
+
+/* ===== Image exactly inside the frame ===== */
 .about-image{
   position:relative;
-  padding:18px;
-  box-sizing:border-box;
+  padding:0;
 }
 
 .about-image:before{
@@ -528,30 +528,18 @@ button,.btn,.nav a{touch-action:manipulation;}
   position:absolute;
   inset:0;
   border:1px solid rgba(201,155,75,.35);
-  z-index:0;
+  z-index:2;
   pointer-events:none;
 }
 
 .about-image img{
   position:relative;
   z-index:1;
+  display:block;
   width:100%;
+  height:auto;
   aspect-ratio:4/5;
   object-fit:cover;
-  max-height:620px;
+  max-height:none;
   border-radius:3px;
-}
-
-@media(max-width:600px){
-  .about-image{
-    padding:12px;
-  }
-
-  .about-image:before{
-    inset:0;
-  }
-
-  .about-image img{
-    width:100%;
-  }
 }
